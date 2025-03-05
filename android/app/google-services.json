@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "752372556324",
+    "project_id": "znotes-9abdb",
+    "storage_bucket": "znotes-9abdb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:752372556324:android:7c9fc09e5ef1d1bc9e6eb1",
+        "android_client_info": {
+          "package_name": "com.example.untitled"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDumunJMxoSfFjO8LmgsAej6uDCiecoTM0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:752372556324:android:44f88816bc2635c49e6eb1",
+        "android_client_info": {
+          "package_name": "com.example.z_notes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDumunJMxoSfFjO8LmgsAej6uDCiecoTM0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
