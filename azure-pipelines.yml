@@ -1,0 +1,180 @@
+trigger:
+  - main
+  - feature/*
+  - develop
+
+# PR triggers if you want to analyze PRs as well
+pr:
+  branches:
+    include:
+      - main
+      - develop
+
+variables:
+  - group: sonarqube-credentials  # Create this variable group in Azure DevOps Library
+  - name: flutter_version
+    value: 'latest'
+  - name: sonar.projectKey
+    value: 'Sansitor_to-do_app_AZXeFQjz7paobE5uHVfM'  # Replace with your project key
+  - name: sonar.projectName
+    value: 'to-do_app'  # Replace with your project name
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+- stage: Build_and_Test
+  displayName: 'Build and Test'
+  jobs:
+  - job: Flutter_Build_Test
+    displayName: 'Flutter Build and Test'
+    steps:
+    - task: FlutterInstall@0
+      displayName: 'Install Flutter SDK'
+      inputs:
+        mode: 'auto'
+        channel: 'stable'
+        version: '$(flutter_version)'
+    
+    - script: |
+        flutter --version
+        flutter pub get
+      displayName: 'Flutter Setup'
+    
+    - script: |
+        flutter analyze --no-fatal-infos
+      displayName: 'Flutter Analyze'
+      continueOnError: true
+    
+    - script: |
+        flutter test --no-pub
+      displayName: 'Run Unit Tests'
+      continueOnError: true
+
+- stage: Code_Quality
+  displayName: 'Code Quality Analysis'
+  dependsOn: Build_and_Test
+  jobs:
+  - job: SonarQube_Scan
+    displayName: 'SonarQube Analysis'
+    steps:
+    - task: FlutterInstall@0
+      displayName: 'Install Flutter SDK'
+      inputs:
+        mode: 'auto'
+        channel: 'stable'
+        version: '$(flutter_version)'
+    
+    - script: |
+        flutter pub get
+      displayName: 'Flutter Setup'
+    
+    - script: |
+        flutter analyze --write=analyzer-report.json || true
+      displayName: 'Generate Analyzer Report'
+    
+    - script: |
+        flutter test --coverage
+      displayName: 'Generate Coverage Report'
+      continueOnError: true
+    
+    - task: SonarQubePrepare@5
+      displayName: 'Prepare SonarQube Analysis'
+      inputs:
+        SonarQube: 'Github Sonar Connection'  # Create this service connection in Project Settings
+        scannerMode: 'CLI'
+        configMode: 'manual'
+        cliProjectKey: '$(sonar.projectKey)'
+        cliProjectName: '$(sonar.projectName)'
+        extraProperties: |
+          # Core settings
+          sonar.projectKey=$(sonar.projectKey)
+          sonar.projectName=$(sonar.projectName)
+          sonar.projectVersion=$(Build.BuildNumber)
+          
+          # New code definition
+          sonar.newCode.referenceBranch=main
+          
+          # Sources and exclusions
+          sonar.sources=lib
+          sonar.tests=test
+          sonar.exclusions=**/*.g.dart,**/*.freezed.dart,**/generated_plugin_registrant.dart,**/*.mocks.dart
+          sonar.test.exclusions=**/test/**
+          sonar.coverage.exclusions=**/*.g.dart,**/*.freezed.dart,**/generated_plugin_registrant.dart,**/*.mocks.dart
+          
+          # Coverage
+          sonar.flutter.coverage.reportPaths=coverage/lcov.info
+          
+          # Additional analyzers
+          sonar.dart.analyzer.reportPaths=analyzer-report.json
+          
+          # SCM settings
+          sonar.scm.provider=git
+          sonar.scm.revision=$(Build.SourceVersion)
+          sonar.pullrequest.key=$(System.PullRequest.PullRequestId)
+          sonar.pullrequest.branch=$(System.PullRequest.SourceBranch)
+          sonar.pullrequest.base=$(System.PullRequest.TargetBranch)
+    
+    - task: SonarQubeAnalyze@5
+      displayName: 'Run SonarQube Analysis'
+    
+    - task: SonarQubePublish@5
+      displayName: 'Publish SonarQube Results'
+      inputs:
+        pollingTimeoutSec: '300'
+
+- stage: Build_Artifacts
+  displayName: 'Build Artifacts'
+  dependsOn: Code_Quality
+  condition: succeeded()
+  jobs:
+  - job: Build_Android
+    displayName: 'Build Android APK'
+    steps:
+    - task: FlutterInstall@0
+      displayName: 'Install Flutter SDK'
+      inputs:
+        mode: 'auto'
+        channel: 'stable'
+        version: '$(flutter_version)'
+    
+    - script: |
+        flutter pub get
+      displayName: 'Flutter Setup'
+    
+    - script: |
+        flutter build apk --release
+      displayName: 'Build Android APK'
+    
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Android APK'
+      inputs:
+        PathtoPublish: 'build/app/outputs/flutter-apk/app-release.apk'
+        ArtifactName: 'flutter-android-app'
+        publishLocation: 'Container'
+
+  - job: Build_iOS
+    displayName: 'Build iOS App'
+    condition: eq(variables['Agent.OS'], 'Darwin')
+    steps:
+    - task: FlutterInstall@0
+      displayName: 'Install Flutter SDK'
+      inputs:
+        mode: 'auto'
+        channel: 'stable'
+        version: '$(flutter_version)'
+    
+    - script: |
+        flutter pub get
+      displayName: 'Flutter Setup'
+    
+    - script: |
+        flutter build ios --release --no-codesign
+      displayName: 'Build iOS App'
+    
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish iOS App'
+      inputs:
+        PathtoPublish: 'build/ios/iphoneos'
+        ArtifactName: 'flutter-ios-app'
+        publishLocation: 'Container'
